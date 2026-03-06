@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Portal de reportes CONSITEC</title>
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --primary-blue: #0033A0;
+            --secondary-blue: #0055D4;
+            --light-blue: #E6F0FF;
+            --white: #FFFFFF;
+            --border-color: #B3CCFF;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: var(--white);
+            color: var(--primary-blue);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background-color: var(--primary-blue);
+            color: var(--white);
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+        }
+
+        header h1 {
+            font-size: 24px;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            font-weight: 700;
+        }
+
+        main {
+            flex: 1;
+            padding: 28px 16px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+        }
+
+        #main-view {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 24px;
+            width: 100%;
+            max-width: 980px;
+        }
+
+        .big-folder-container {
+            width: min(900px, 100%);
+            height: min(540px, 65vh);
+            min-height: 420px;
+            position: relative;
+            perspective: 1600px;
+        }
+
+        .folder-back {
+            position: absolute;
+            inset: 0;
+            background-color: var(--primary-blue);
+            border-radius: 0 12px 12px 12px;
+            box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.28);
+        }
+
+        .folder-back::before {
+            content: "";
+            position: absolute;
+            top: -42px;
+            left: 0;
+            width: 270px;
+            height: 42px;
+            background-color: var(--primary-blue);
+            border-radius: 14px 14px 0 0;
+        }
+
+        .folder-grid {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            right: 16px;
+            bottom: 16px;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-auto-rows: 145px;
+            gap: 16px;
+            opacity: 0;
+            transition: opacity 0.45s ease 0.28s;
+            pointer-events: none;
+            z-index: 10;
+            overflow-y: auto;
+            align-content: start;
+            padding-right: 4px;
+        }
+
+        .folder-grid::-webkit-scrollbar { width: 8px; }
+        .folder-grid::-webkit-scrollbar-thumb {
+            background-color: var(--light-blue);
+            border-radius: 4px;
+        }
+
+        .big-folder-container:hover .folder-grid {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .folder-front {
+            position: absolute;
+            inset: 0;
+            background-color: var(--secondary-blue);
+            border-radius: 0 12px 12px 12px;
+            transform-origin: left center;
+            transform-style: preserve-3d;
+            transition: transform 0.65s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 20;
+            box-shadow: 0 -8px 18px rgba(0, 0, 0, 0.22);
+            pointer-events: none;
+        }
+
+        .folder-front::before {
+            content: "";
+            position: absolute;
+            top: -32px;
+            left: 0;
+            width: 270px;
+            height: 32px;
+            background-color: var(--secondary-blue);
+            border-radius: 10px 10px 0 0;
+        }
+
+        .big-folder-container:hover .folder-front {
+            transform: rotateY(-124deg);
+        }
+
+        .commercial-folder {
+            position: relative;
+            background-color: var(--secondary-blue);
+            border-radius: 0 6px 6px 6px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: var(--white);
+            font-weight: 700;
+            font-size: 16px;
+            text-transform: uppercase;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+            transition: transform 0.22s ease, filter 0.25s ease;
+            cursor: pointer;
+            padding: 0 50px 0 8px;
+            text-align: center;
+            word-break: break-word;
+        }
+
+        .commercial-folder::before {
+            content: "";
+            position: absolute;
+            top: -14px;
+            left: 0;
+            width: 45%;
+            height: 14px;
+            background-color: inherit;
+            border-radius: 6px 6px 0 0;
+            filter: brightness(0.9);
+        }
+
+        .commercial-folder:hover {
+            transform: translateY(-5px);
+            filter: brightness(1.04);
+        }
+
+        .folder-actions {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            display: flex;
+            gap: 6px;
+        }
+
+        .btn-action {
+            background: rgba(255, 255, 255, 0.22);
+            border: none;
+            color: var(--white);
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-action:hover { background: rgba(255, 255, 255, 0.4); }
+
+        .color-picker {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            inset: 0;
+            cursor: pointer;
+        }
+
+        .btn-main {
+            background-color: var(--primary-blue);
+            color: var(--white);
+            border: 2px solid var(--primary-blue);
+            padding: 9px 18px;
+            font-size: 15px;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.2s;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+        }
+
+        .btn-main:hover {
+            background-color: var(--white);
+            color: var(--primary-blue);
+        }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: var(--white);
+            padding: 20px;
+            border-radius: 8px;
+            width: min(320px, 90vw);
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            border: 1px solid var(--border-color);
+        }
+
+        .modal-content h3 {
+            font-size: 18px;
+            color: var(--primary-blue);
+            text-transform: uppercase;
+        }
+
+        .modal-content input {
+            padding: 10px;
+            border: 1px solid var(--primary-blue);
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        #table-view {
+            display: none;
+            width: 100%;
+            max-width: 1600px;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .view-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--primary-blue);
+            padding-bottom: 10px;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .view-header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .view-header h2 {
+            font-size: 20px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .filters {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .filters select,
+        .filters input {
+            padding: 8px;
+            border: 1px solid var(--primary-blue);
+            border-radius: 4px;
+            color: var(--primary-blue);
+            outline: none;
+            min-width: 140px;
+            background: #fff;
+        }
+
+        .table-container {
+            width: 100%;
+            overflow: auto;
+            border: 1px solid var(--primary-blue);
+            max-height: 66vh;
+            background: var(--white);
+        }
+
+        .data-table {
+            min-width: 1750px;
+            width: 100%;
+            border-collapse: collapse;
+            font-family: Cambria, serif;
+            font-size: 14px;
+        }
+
+        .data-table th,
+        .data-table td {
+            border: 1px solid var(--border-color);
+            padding: 8px;
+            text-align: left;
+            min-width: 100px;
+        }
+
+        .data-table th {
+            background-color: var(--primary-blue);
+            color: var(--white);
+            position: sticky;
+            top: 0;
+            text-transform: uppercase;
+            z-index: 2;
+        }
+
+        .data-table td {
+            text-transform: uppercase;
+            background-color: var(--white);
+            color: var(--primary-blue);
+        }
+
+        .data-table td[contenteditable="true"]:focus {
+            background-color: var(--light-blue);
+            outline: 2px solid var(--primary-blue);
+        }
+
+        .btn-delete-row {
+            background: transparent;
+            color: #d9534f;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .action-cell {
+            text-align: center;
+            width: 56px;
+            min-width: 56px;
+        }
+
+        @media (max-width: 980px) {
+            .folder-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+            .big-folder-container {
+                height: min(560px, 70vh);
+            }
+        }
+    </style>
+</head>
+<body>
+<header>
+    <h1>CONSITEC</h1>
+</header>
+
+<main>
+    <div id="main-view">
+        <div class="big-folder-container" aria-label="Carpeta principal">
+            <div class="folder-back"></div>
+            <div class="folder-grid" id="folder-grid"></div>
+            <div class="folder-front"></div>
+        </div>
+        <button class="btn-main" id="btn-add-commercial">Agregar comercial</button>
+    </div>
+
+    <div id="table-view">
+        <div class="view-header">
+            <div class="view-header-left">
+                <button class="btn-main" id="btn-back" style="padding: 6px 10px;"><i data-lucide="arrow-left"></i></button>
+                <h2 id="commercial-title">Vista de reporte</h2>
+            </div>
+            <div class="filters">
+                <label for="filter-month">Filtrar por MES</label>
+                <select id="filter-month">
+                    <option value="">Todos los meses</option>
+                    <option value="enero">Enero</option>
+                    <option value="febrero">Febrero</option>
+                    <option value="marzo">Marzo</option>
+                    <option value="abril">Abril</option>
+                    <option value="mayo">Mayo</option>
+                    <option value="junio">Junio</option>
+                    <option value="julio">Julio</option>
+                    <option value="agosto">Agosto</option>
+                    <option value="septiembre">Septiembre</option>
+                    <option value="octubre">Octubre</option>
+                    <option value="noviembre">Noviembre</option>
+                    <option value="diciembre">Diciembre</option>
+                </select>
+                <label for="filter-year">Filtrar por AÑO</label>
+                <input type="text" id="filter-year" placeholder="Año (Ej. 2024)" />
+                <button class="btn-main" id="btn-export"><i data-lucide="download" style="display:inline; width:18px; height:18px; vertical-align:middle; margin-right:5px;"></i>Exportar</button>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table class="data-table" id="data-table">
+                <thead>
+                <tr>
+                    <th>COD</th>
+                    <th>CLIENTE</th>
+                    <th>CONTACTO</th>
+                    <th>NÚMERO</th>
+                    <th>DISTRITO</th>
+                    <th>SERVICIO</th>
+                    <th>GRUPOS</th>
+                    <th>DÍAS</th>
+                    <th>DÍA</th>
+                    <th>MES</th>
+                    <th>AÑO</th>
+                    <th>TOTAL S/. (NO Inc. IGV)</th>
+                    <th>FACTURADO</th>
+                    <th>N° FACTURA</th>
+                    <th>EMISIÓN CERTIFICADOS FISICO</th>
+                    <th>PAGO</th>
+                    <th>CRÉDITO</th>
+                    <th class="action-cell"></th>
+                </tr>
+                </thead>
+                <tbody id="table-body"></tbody>
+            </table>
+        </div>
+        <div>
+            <button class="btn-main" id="btn-add-row">Añadir fila</button>
+        </div>
+    </div>
+</main>
+
+<div id="modal-add-commercial" class="modal-overlay">
+    <div class="modal-content">
+        <h3>Nuevo comercial</h3>
+        <input type="text" id="input-commercial-name" placeholder="Nombre" />
+        <div class="modal-actions">
+            <button class="btn-main" id="btn-cancel-modal">Cancelar</button>
+            <button class="btn-main" id="btn-confirm-modal">Agregar</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const STORAGE_KEY = 'consitec_reports_state_v1';
+    const defaultNames = ['Abigail', 'Cristhian', 'Ingrit', 'Mayerly', 'Valeria', 'Fiorella'];
+    const COLUMNS_COUNT = 17;
+
+    const mainView = document.getElementById('main-view');
+    const tableView = document.getElementById('table-view');
+    const folderGrid = document.getElementById('folder-grid');
+    const dataTable = document.getElementById('data-table');
+    const tableBody = document.getElementById('table-body');
+    const commercialTitle = document.getElementById('commercial-title');
+    const modalAdd = document.getElementById('modal-add-commercial');
+    const inputName = document.getElementById('input-commercial-name');
+    const monthFilter = document.getElementById('filter-month');
+    const yearFilter = document.getElementById('filter-year');
+
+    let state = {
+        commercials: [],
+        activeCommercialId: null
+    };
+
+    function generateId() {
+        return Math.random().toString(36).slice(2, 11);
+    }
+
+    function createEmptyRow() {
+        return new Array(COLUMNS_COUNT).fill('');
+    }
+
+    function createInitialRows() {
+        return Array.from({ length: 100 }, createEmptyRow);
+    }
+
+    function persistState() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function buildInitialState() {
+        return {
+            commercials: defaultNames.map((name) => ({
+                id: generateId(),
+                name,
+                color: '#0055D4',
+                rows: createInitialRows()
+            })),
+            activeCommercialId: null
+        };
+    }
+
+    function hydrateState() {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) {
+            state = buildInitialState();
+            persistState();
+            return;
+        }
+
+        try {
+            const parsed = JSON.parse(raw);
+            if (!parsed || !Array.isArray(parsed.commercials)) {
+                throw new Error('Estado inválido');
+            }
+            state = {
+                commercials: parsed.commercials.map((comm) => ({
+                    id: comm.id || generateId(),
+                    name: comm.name || 'Comercial',
+                    color: comm.color || '#0055D4',
+                    rows: Array.isArray(comm.rows) && comm.rows.length > 0
+                        ? comm.rows.map((row) => {
+                            const normalized = Array.isArray(row) ? row.slice(0, COLUMNS_COUNT) : [];
+                            while (normalized.length < COLUMNS_COUNT) normalized.push('');
+                            return normalized;
+                        })
+                        : createInitialRows()
+                })),
+                activeCommercialId: null
+            };
+        } catch (error) {
+            console.warn('No se pudo restaurar localStorage, se recrea estado inicial.', error);
+            state = buildInitialState();
+            persistState();
+        }
+    }
+
+    function getActiveCommercial() {
+        return state.commercials.find((c) => c.id === state.activeCommercialId) || null;
+    }
+
+    function renderFolders() {
+        folderGrid.innerHTML = '';
+
+        state.commercials.forEach((comm) => {
+            const folder = document.createElement('div');
+            folder.className = 'commercial-folder';
+            folder.style.backgroundColor = comm.color;
+
+            const title = document.createElement('span');
+            title.textContent = comm.name;
+
+            const actions = document.createElement('div');
+            actions.className = 'folder-actions';
+
+            const colorBtn = document.createElement('button');
+            colorBtn.type = 'button';
+            colorBtn.className = 'btn-action';
+            colorBtn.style.position = 'relative';
+            colorBtn.innerHTML = '<i data-lucide="palette" width="14" height="14"></i>';
+
+            const colorInput = document.createElement('input');
+            colorInput.type = 'color';
+            colorInput.className = 'color-picker';
+            colorInput.value = comm.color;
+            colorInput.addEventListener('input', (e) => {
+                comm.color = e.target.value;
+                folder.style.backgroundColor = comm.color;
+                persistState();
+            });
+            colorInput.addEventListener('click', (e) => e.stopPropagation());
+            colorBtn.appendChild(colorInput);
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.type = 'button';
+            deleteBtn.className = 'btn-action';
+            deleteBtn.innerHTML = '<i data-lucide="x" width="14" height="14"></i>';
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                state.commercials = state.commercials.filter((c) => c.id !== comm.id);
+                if (state.activeCommercialId === comm.id) {
+                    closeTableView();
+                }
+                persistState();
+                renderFolders();
+            });
+
+            actions.appendChild(colorBtn);
+            actions.appendChild(deleteBtn);
+            folder.appendChild(title);
+            folder.appendChild(actions);
+
+            folder.addEventListener('click', () => openTableView(comm.id));
+            folderGrid.appendChild(folder);
+        });
+
+        lucide.createIcons();
+    }
+
+    function createRowElement(rowData, rowIndex) {
+        const tr = document.createElement('tr');
+
+        for (let i = 0; i < COLUMNS_COUNT; i++) {
+            const td = document.createElement('td');
+            td.contentEditable = 'true';
+            td.textContent = rowData[i] || '';
+            td.addEventListener('input', () => {
+                const comm = getActiveCommercial();
+                if (!comm) return;
+                comm.rows[rowIndex][i] = td.textContent;
+                persistState();
+            });
+            tr.appendChild(td);
+        }
+
+        const actionTd = document.createElement('td');
+        actionTd.className = 'action-cell';
+
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'btn-delete-row';
+        delBtn.title = 'Eliminar fila';
+        delBtn.innerHTML = '<i data-lucide="trash-2" width="16" height="16"></i>';
+
+        delBtn.addEventListener('click', () => {
+            const comm = getActiveCommercial();
+            if (!comm) return;
+            comm.rows.splice(rowIndex, 1);
+            persistState();
+            renderTableRows(comm);
+            applyFilters();
+        });
+
+        actionTd.appendChild(delBtn);
+        tr.appendChild(actionTd);
+        return tr;
+    }
+
+    function renderTableRows(comm) {
+        tableBody.innerHTML = '';
+        comm.rows.forEach((rowData, index) => {
+            tableBody.appendChild(createRowElement(rowData, index));
+        });
+        lucide.createIcons();
+    }
+
+    function openTableView(id) {
+        state.activeCommercialId = id;
+        const comm = getActiveCommercial();
+        if (!comm) return;
+
+        commercialTitle.textContent = `Vista de reporte - ${comm.name.toUpperCase()}`;
+        renderTableRows(comm);
+
+        mainView.style.display = 'none';
+        tableView.style.display = 'flex';
+        applyFilters();
+        persistState();
+    }
+
+    function closeTableView() {
+        state.activeCommercialId = null;
+        tableView.style.display = 'none';
+        mainView.style.display = 'flex';
+        persistState();
+    }
+
+    function applyFilters() {
+        const monthVal = monthFilter.value.toLowerCase().trim();
+        const yearVal = yearFilter.value.toLowerCase().trim();
+        const rows = tableBody.querySelectorAll('tr');
+
+        rows.forEach((row) => {
+            const cells = row.querySelectorAll('td');
+            if (cells.length < COLUMNS_COUNT) return;
+            const monthText = cells[9].textContent.toLowerCase();
+            const yearText = cells[10].textContent.toLowerCase();
+            const matchesMonth = !monthVal || monthText.includes(monthVal);
+            const matchesYear = !yearVal || yearText.includes(yearVal);
+            row.style.display = matchesMonth && matchesYear ? '' : 'none';
+        });
+    }
+
+    document.getElementById('btn-add-commercial').addEventListener('click', () => {
+        inputName.value = '';
+        modalAdd.style.display = 'flex';
+        inputName.focus();
+    });
+
+    document.getElementById('btn-cancel-modal').addEventListener('click', () => {
+        modalAdd.style.display = 'none';
+    });
+
+    document.getElementById('btn-confirm-modal').addEventListener('click', () => {
+        const name = inputName.value.trim();
+        if (!name) return;
+
+        state.commercials.push({
+            id: generateId(),
+            name,
+            color: '#0055D4',
+            rows: createInitialRows()
+        });
+
+        persistState();
+        renderFolders();
+        modalAdd.style.display = 'none';
+    });
+
+    document.getElementById('btn-back').addEventListener('click', closeTableView);
+
+    document.getElementById('btn-add-row').addEventListener('click', () => {
+        const comm = getActiveCommercial();
+        if (!comm) return;
+        comm.rows.push(createEmptyRow());
+        persistState();
+        renderTableRows(comm);
+        applyFilters();
+    });
+
+    monthFilter.addEventListener('change', applyFilters);
+    yearFilter.addEventListener('input', applyFilters);
+
+    document.getElementById('btn-export').addEventListener('click', () => {
+        const comm = getActiveCommercial();
+        if (!comm) return;
+
+        const hiddenActionCells = [];
+        tableBody.querySelectorAll('tr').forEach((row) => {
+            const actionCell = row.lastElementChild;
+            if (actionCell) {
+                hiddenActionCells.push(actionCell);
+                actionCell.style.display = 'none';
+            }
+        });
+
+        const workbook = XLSX.utils.table_to_book(dataTable, { raw: true });
+        XLSX.writeFile(workbook, `Reporte_Ventas_${comm.name}.xlsx`);
+
+        hiddenActionCells.forEach((cell) => {
+            cell.style.display = '';
+        });
+    });
+
+    hydrateState();
+    renderFolders();
+    lucide.createIcons();
+</script>
+</body>
+</html>
