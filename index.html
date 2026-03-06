@@ -373,6 +373,9 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
+            gap: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
         }
 
         .action-cell {
@@ -409,7 +412,7 @@
     <div id="table-view">
         <div class="view-header">
             <div class="view-header-left">
-                <button class="btn-main" id="btn-back" style="padding: 6px 10px;"><i data-lucide="arrow-left"></i></button>
+                <button class="btn-main" id="btn-back" style="padding: 6px 10px; display:flex; align-items:center; gap:6px;"><i data-lucide="arrow-left"></i><span>←</span></button>
                 <h2 id="commercial-title">Vista de reporte</h2>
             </div>
             <div class="filters">
@@ -648,7 +651,7 @@
         delBtn.type = 'button';
         delBtn.className = 'btn-delete-row';
         delBtn.title = 'Eliminar fila';
-        delBtn.innerHTML = '<i data-lucide="trash-2" width="16" height="16"></i>';
+        delBtn.innerHTML = '<i data-lucide="trash-2" width="16" height="16"></i><span>Eliminar</span>';
 
         delBtn.addEventListener('click', () => {
             const comm = getActiveCommercial();
@@ -717,6 +720,18 @@
 
     document.getElementById('btn-cancel-modal').addEventListener('click', () => {
         modalAdd.style.display = 'none';
+    });
+
+    modalAdd.addEventListener('click', (event) => {
+        if (event.target === modalAdd) {
+            modalAdd.style.display = 'none';
+        }
+    });
+
+    inputName.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            document.getElementById('btn-confirm-modal').click();
+        }
     });
 
     document.getElementById('btn-confirm-modal').addEventListener('click', () => {
